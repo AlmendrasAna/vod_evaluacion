@@ -321,7 +321,6 @@ Separar entornos permite mantener **estabilidad**, **seguridad** y **control ope
 | 🧩 Acceso entre servicios | Permitir que funciones y contenedores accedan únicamente a los recursos requeridos. |
 | 🔐 Auditoría y seguridad | Activación de autenticación multifactor (MFA), uso de roles temporales y registro de acciones. |
 
----
 
 ### 🔹 Métodos de separación
 
@@ -331,7 +330,6 @@ Separar entornos permite mantener **estabilidad**, **seguridad** y **control ope
 | 🌐 VPCs separadas | Definición de una VPC específica para cada entorno dentro de la misma cuenta. |
 | 🏷️ Namespaces o etiquetas | Segmentación mediante etiquetas (`Environment=Dev`) o namespaces en Kubernetes. |
 
----
 
 ### 🧩 Roles IAM y políticas por entorno
 
@@ -355,5 +353,136 @@ Separar entornos permite mantener **estabilidad**, **seguridad** y **control ope
 
 ### 📈 Monitoreo y auditoría
 - Habilitar logs de acceso y administración en todos los sistemas: VPN, IAM, gestión de secretos y cifrado.
-- Configurar alertas (via SIEM, sistemas de detección) ante accesos sospechosos, usos de claves obsoletas o intentos de escalación de privilegios.
+- Configurar alertas  ante accesos sospechosos, usos de claves obsoletas o intentos de escalación de privilegios.
 - Revisar regularmente registros para identificar brechas o malas configuraciones.
+
+--- 
+
+## 🚀 CI/CD con GitHub Actions 
+
+### 🎯 Objetivo principal
+
+Automatizar el proceso de pruebas y despliegue de una aplicación Flask en un servidor EC2 con Docker, garantizando que:
+- Solo se despliegue código que haya pasado las pruebas.
+- El despliegue se realice automáticamente al actualizar la rama main.
+
+### 🔁 Flujo CI/CD
+
+| Etapa       | Descripción                                                                 |
+|-------------|-----------------------------------------------------------------------------|
+| **CI**      | Ejecuta pruebas automáticamente al hacer push en `main` o `develop`, o al crear un PR hacia `develop`. |
+| **CD**      | Realiza despliegue automático a un servidor EC2 cuando se hace push a la rama `main`, y las pruebas pasan correctamente. |
+
+---
+
+### 🧪 Etapa de CI – Pruebas Automáticas
+
+El job `test` hace lo siguiente:
+
+1. **Clona el repositorio.**
+2. **Configura Python 3.11.**
+3. **Instala las dependencias** desde `requirements.txt`.
+4. **Ejecuta pruebas** con `pytest` en la carpeta `tests/`.
+
+Se ejecuta en:
+- Push a `main` o `develop`.
+- Pull Request hacia `develop`.
+
+---
+
+### 🚀 Etapa de CD – Despliegue Automático en EC2
+
+El job `deploy` se ejecuta **solo si**:
+- Los tests pasaron correctamente.
+- El cambio fue un `push` a la rama `main`.
+
+Acciones que realiza:
+1. Clona el código en el runner.
+2. Establece conexión SSH segura con el servidor EC2.
+3. Accede a la carpeta del proyecto en el servidor.
+4. Ejecuta:
+   ```bash
+   git pull origin main
+   docker-compose down
+   docker-compose up -d --build
+
+
+### 🔐 Secrets requeridos en GitHub
+
+Este pipeline requiere configurar los siguientes secretos en:
+
+**Settings > Secrets and variables > Actions**
+
+| Secreto          | Descripción                                      |
+|------------------|--------------------------------------------------|
+| `EC2_HOST`       | IP pública o DNS del servidor EC2               |
+| `EC2_USER`       | Usuario SSH (por ejemplo, `ubuntu`)             |
+| `EC2_KEY_BASE64` | Clave privada SSH codificada en base64          |
+
+
+✅ Beneficios de este pipeline
+
+- 🔄 Automatización completa del ciclo de desarrollo.
+- 🔐 Seguridad mediante uso de secretos en GitHub.
+- 🧪 Asegura despliegue solo si los tests pasan.
+- 🚫 Evita errores humanos en producción.
+
+---
+
+# ☁️ Infraestructura como Código con Terraform 
+
+Este repositorio define la infraestructura necesaria para desplegar un entorno básico de desarrollo con **EC2**, **S3**, y **RDS PostgreSQL** usando **Terraform** sobre **AWS**.
+
+## 🚀 ¿Qué hace este proyecto?
+
+Este código automatiza la creación de:
+
+- 🖥️ Una instancia **EC2** con Ubuntu para correr una app Flask.
+- 🛢️ Un bucket **S3** para almacenamiento (como videos o logs).
+- 🗄️ Una base de datos **PostgreSQL RDS** gestionada por AWS.
+- 🔒 Un **grupo de seguridad** con reglas de red específicas.
+- 🗝️ Un par de claves **SSH** para acceso seguro.
+- 📄 Un archivo local con información de los recursos creados.
+
+## 📦 Recursos creados
+
+| Recurso           | Descripción                                                       |
+|------------------|-------------------------------------------------------------------|
+| `aws_instance`    | Instancia EC2 con acceso SSH y pública para la app Flask.         |
+| `aws_s3_bucket`   | Bucket S3 con nombre aleatorio para almacenar contenido.          |
+| `aws_db_instance` | RDS PostgreSQL pública para la base de datos de la app.           |
+| `aws_security_group` | Reglas para permitir acceso SSH (22), HTTP/Flask (5000) y PostgreSQL (5432). |
+| `aws_key_pair`    | Llave SSH pública usada para acceder a EC2.                       |
+| `local_file`      | Archivo `info_aws_demo.txt` con los detalles útiles de despliegue.|
+
+## 🔐 Variables necesarias
+
+- Este main.tf utiliza variables definidas en terraform.tfvars o variables.tf. Las principales son:
+  - aws_region – Región donde desplegar.
+  - key_name – Nombre que tendrá tu llave en AWS.
+  - public_key_path – Ruta al archivo .pub de tu llave SSH.
+  - instance_type – Tipo de instancia EC2 (ej: t2.micro).
+  - my_ip – Tu IP pública con /32, para limitar acceso SSH.
+  - db_username, db_password – Credenciales de RDS.
+ 
+## 📊 Estrategias de Monitorización y Logging con CloudWatch
+
+**Amazon CloudWatch** es un servicio clave para observar el rendimiento, comportamiento y salud de los recursos en AWS. En una plataforma VOD, donde la disponibilidad y el rendimiento son críticos, su uso permite detectar incidentes, analizar métricas y mantener la continuidad del servicio.
+
+### 🎯 Objetivos
+
+- Supervisar la infraestructura (EC2, RDS, ELB, etc.)
+- Detectar anomalías y generar alertas proactivas
+- Registrar eventos y errores para auditoría y debugging
+
+### 🧰 Estrategias Clave
+
+| Área                          | Estrategia                                                                 |
+|-------------------------------|---------------------------------------------------------------------------|
+| **Métricas Personalizadas**   | Enviar métricas específicas de la aplicación (por ejemplo, streams activos, tasa de errores, etc.) |
+| **Logs de Aplicación**        | Enviar logs de acceso, errores y eventos desde instancias EC2 o contenedores a **CloudWatch Logs** |
+| **Alarmas y Alertas**         | Configurar alarmas sobre CPU, memoria, errores HTTP 5xx, latencia, etc., con notificaciones por SNS o email |
+| **Dashboards**                | Crear paneles visuales para monitorear en tiempo real el estado del sistema |
+| **Insights y Búsqueda**       | Usar **CloudWatch Logs Insights** para consultas rápidas y análisis de logs complejos |
+| **Integración con CI/CD**     | Reportar fallos de despliegue y eventos desde pipelines a CloudWatch |
+
